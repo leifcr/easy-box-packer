@@ -1,3 +1,9 @@
+require 'rutie'
+
+module RustBoxPacker
+  Rutie.new(:rutie_box_packer).init 'Init_rust_packer', File.expand_path('./target')
+end
+
 module EasyBoxPacker
   class << self
     def pack(container:, items:)
@@ -157,37 +163,7 @@ module EasyBoxPacker
     end
 
     def place(item, space)
-      item_length, item_width, item_height = item[:dimensions].sort.reverse
-
-      permutations = [
-        [item_width, item_height, item_length],
-        [item_width, item_length, item_height],
-        [item_height, item_width, item_length],
-        [item_height, item_length, item_width],
-        [item_length, item_width, item_height],
-        [item_length, item_height, item_width]
-      ]
-
-      possible_rotations_and_margins = []
-
-      permutations.each do |perm|
-        # Skip if the item does not fit with this orientation
-        next unless perm[0] <= space[:dimensions][0] &&
-          perm[1] <= space[:dimensions][1] &&
-          perm[2] <= space[:dimensions][2]
-
-        possible_margin   = [space[:dimensions][0] - perm[0], space[:dimensions][1] - perm[1], space[:dimensions][2] - perm[2]]
-        possible_rotations_and_margins << { margin: possible_margin, rotation: perm }
-      end
-
-      # select rotation with smallest margin
-      final = possible_rotations_and_margins.sort_by { |a| a[:margin].sort }.first
-      return unless final
-      return {
-        dimensions: final[:rotation],
-        position: space[:position],
-        weight: item[:weight].to_f
-      }
+      RustPacker.place(item, space)
     end
 
     def break_up_space(space, placement)

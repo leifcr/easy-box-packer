@@ -1,0 +1,14 @@
+[package]
+name = "easy-box-packer"
+version = "0.1.0"
+authors = ["michael groble <mike@groble.me>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rutie = "0.7.0"
+
+[lib]
+name = "rutie_box_packer"
+crate-type = ["dylib"]
