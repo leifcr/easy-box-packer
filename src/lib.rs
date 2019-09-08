@@ -1,6 +1,7 @@
 extern crate rutie;
 
 use rutie::{Class, Object, Hash, Float, Fixnum, NilClass, Array, Symbol, AnyObject, VM};
+use std::cmp::Ordering;
 
 rutie::class!(RustPacker);
 
@@ -20,9 +21,31 @@ fn to_3d_array(rb_array : &AnyObject) -> [f64; 3] {
     ]
 }
 
+fn cmp_dimensions(a: &[f64; 3], b: &[f64; 3]) -> Ordering {
+    if a[0] < b[0] {
+        return Ordering::Less;
+    }
+    if a[0] > b[0] {
+        return Ordering::Greater;
+    }
+    if a[1] < b[1] {
+        return Ordering::Less;
+    }
+    if a[1] > b[1] {
+        return Ordering::Greater;
+    }
+    if a[2] < b[2] {
+        return Ordering::Less;
+    }
+    if a[2] > b[2] {
+        return Ordering::Greater;
+    }
+    Ordering::Equal
+}
+
 struct RotationAndMargin<'a> {
     rotation: &'a[f64; 3],
-    smallest_margin: f64
+    sorted_margins: [f64; 3]
 }
 
 rutie::methods!(
@@ -52,14 +75,14 @@ rutie::methods!(
             if rotation[0] > space_dimensions[0] || rotation[1] > space_dimensions[1] || rotation[2] > space_dimensions[2] {
                 continue;
             }
-            let mut possible_margin = [
+            let mut sorted_margins = [
                 space_dimensions[0] - rotation[0],
                 space_dimensions[1] - rotation[1],
                 space_dimensions[2] - rotation[2]
             ];
-            let smallest_margin = possible_margin[0].min(possible_margin[1]).min(possible_margin[2]);
+            sorted_margins.sort_by(|a, b| a.partial_cmp(b).unwrap());
             possible_rotations_and_margins.push(
-                RotationAndMargin { rotation, smallest_margin }
+                RotationAndMargin { rotation, sorted_margins }
             );
         }
 
@@ -69,7 +92,9 @@ rutie::methods!(
 
         let mut result = Hash::new();
 
-        possible_rotations_and_margins.sort_by(|a, b| a.smallest_margin.partial_cmp(&b.smallest_margin).unwrap());
+        possible_rotations_and_margins.sort_by(|a, b|
+            cmp_dimensions(&a.sorted_margins, &b.sorted_margins)
+        );
 
         let mut rotation = Array::new();
         rotation.push(Float::new(possible_rotations_and_margins[0].rotation[0]));
