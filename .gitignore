@@ -15,3 +15,12 @@ mkmf.log
 *.gem
 .ruby-gemset
 .ruby-version
+
+
+#Added by cargo
+#
+#already existing elements are commented out
+
+/target
+**/*.rs.bk
+Cargo.lock

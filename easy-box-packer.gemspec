@@ -10,6 +10,7 @@ Gem::Specification.new do |s|
   s.summary      = '3D bin-packing with weight limit using first-fit decreasing algorithm and empty maximal spaces'
   s.files        = Dir['LICENSE.txt', 'README.md', 'easy-box-packer.rb']
   s.require_path = '.'
+  s.add_dependency 'rutie', '~> 0.0.4'
   s.add_development_dependency 'rspec', '~> 3.1', '>= 3.1.0'
   s.add_development_dependency 'pry'
 end
