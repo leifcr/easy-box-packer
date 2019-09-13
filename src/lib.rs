@@ -97,8 +97,7 @@ rutie::methods!(
         let space_hash = space.unwrap();
         let space_dimensions = to_dimensions(&space_hash.at(&Symbol::new("dimensions")));
         let mut item_dimensions = to_dimensions(&item_hash.at(&Symbol::new("dimensions")));
-        item_dimensions.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        item_dimensions.reverse();
+        item_dimensions.sort_by(|a, b| b.partial_cmp(a).unwrap());
 
         let permutations: [Dimensions; 6] = [
             [item_dimensions[1], item_dimensions[2], item_dimensions[0]],
@@ -413,6 +412,27 @@ rutie::methods!(
 
         result
     }
+
+    fn item_greedy_box(items: Array) -> Array {
+        let mut max_length : f64 = 0.0;
+        let mut max_width : f64 = 0.0;
+        let mut total_height : f64 = 0.0;
+
+        let items = items.unwrap();
+        for item in items {
+            let item = item.try_convert_to::<Hash>().unwrap();
+            let mut dimensions = to_dimensions(&item.at(&Symbol::new("dimensions")));
+            dimensions.sort_by(|a, b| b.partial_cmp(a).unwrap());
+            max_length = max_length.max(dimensions[0]);
+            max_width = max_width.max(dimensions[1]);
+            total_height += dimensions[2];
+        }
+        let mut result = Array::new();
+        result.push(Float::new(max_length));
+        result.push(Float::new(max_width));
+        result.push(Float::new(0.1 * (10.0 * total_height).round()));
+        result
+    }
 );
 
 #[allow(non_snake_case)]
@@ -421,5 +441,6 @@ pub extern "C" fn Init_rust_packer() {
     Class::new("RustPacker", None).define(|itself| {
         itself.def_self("place", place);
         itself.def_self("break_up_space", break_up_space);
+        itself.def_self("item_greedy_box", item_greedy_box);
     });
 }

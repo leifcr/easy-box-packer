@@ -171,11 +171,7 @@ module EasyBoxPacker
     end
 
     def item_greedy_box(items)
-      array_of_lwh            = items.map { |i| i[:dimensions].sort.reverse }
-      items_max_length        = array_of_lwh.max { |x, y| x[0] <=> y[0] }[0]
-      items_max_width         = array_of_lwh.max { |x, y| x[1] <=> y[1] }[1]
-      items_total_height      = array_of_lwh.inject(0) { |sum, x| sum+=x[2] }.round(1)
-      [items_max_length, items_max_width, items_total_height]
+      RustPacker.item_greedy_box(items)
     end
 
     def check_container_is_bigger_than_greedy_box(container, items)
