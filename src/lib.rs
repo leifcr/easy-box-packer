@@ -1,6 +1,6 @@
 extern crate rutie;
 
-use rutie::{AnyObject, Array, Class, Fixnum, Float, Hash, NilClass, Object, Symbol, VM};
+use rutie::{AnyObject, Array, Class, Fixnum, Float, Hash, NilClass, Object, Symbol, Boolean};
 use std::cmp::Ordering;
 
 rutie::class!(RustPacker);
@@ -21,6 +21,16 @@ fn to_dimensions(rb_array: &AnyObject) -> Dimensions {
         to_dimension(&array.at(1)),
         to_dimension(&array.at(2)),
     ]
+}
+
+fn extract_dimensions(rb_array_of_hashes: Array) -> Vec<Dimensions> {
+    let mut dimensions : Vec<Dimensions> = Vec::with_capacity(rb_array_of_hashes.length());
+    for hash in rb_array_of_hashes {
+        let hash = hash.try_convert_to::<Hash>().unwrap();
+        let d = to_dimensions(&hash.at(&Symbol::new("dimensions")));
+        dimensions.push(d);
+    }
+    dimensions
 }
 
 fn to_array(a: &Dimensions) -> Array {
@@ -88,6 +98,21 @@ struct DimensionsAndPosition {
     dimensions: Dimensions,
     position: Dimensions,
 }
+
+fn internal_item_greedy_box(items: &[Dimensions]) -> Dimensions {
+    let mut max_length : f64 = 0.0;
+    let mut max_width : f64 = 0.0;
+    let mut total_height : f64 = 0.0;
+    for item in items.iter() {
+        let mut dimensions = item.clone();
+        dimensions.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        max_length = max_length.max(dimensions[0]);
+        max_width = max_width.max(dimensions[1]);
+        total_height += dimensions[2];
+    }
+    [max_length, max_width, 0.1 * (10.0 * total_height).round()]
+}
+
 
 rutie::methods!(
     RustPacker,
@@ -414,24 +439,9 @@ rutie::methods!(
     }
 
     fn item_greedy_box(items: Array) -> Array {
-        let mut max_length : f64 = 0.0;
-        let mut max_width : f64 = 0.0;
-        let mut total_height : f64 = 0.0;
-
         let items = items.unwrap();
-        for item in items {
-            let item = item.try_convert_to::<Hash>().unwrap();
-            let mut dimensions = to_dimensions(&item.at(&Symbol::new("dimensions")));
-            dimensions.sort_by(|a, b| b.partial_cmp(a).unwrap());
-            max_length = max_length.max(dimensions[0]);
-            max_width = max_width.max(dimensions[1]);
-            total_height += dimensions[2];
-        }
-        let mut result = Array::new();
-        result.push(Float::new(max_length));
-        result.push(Float::new(max_width));
-        result.push(Float::new(0.1 * (10.0 * total_height).round()));
-        result
+        let dimensions = extract_dimensions(items);
+        to_array(&internal_item_greedy_box(&dimensions))
     }
 );
 
