@@ -179,14 +179,7 @@ module EasyBoxPacker
     end
 
     def generate_packing_for_greedy_box(items)
-      return_h = {placements: [], weight: 0, spaces: []}
-      height   = 0
-      items.each do |i|
-        return_h[:placements] << { dimensions: i[:dimensions], :position=>[0, 0, height], weight: i[:weight].to_f }
-        return_h[:weight] += i[:weight].to_f
-        height += i[:dimensions].sort.first.to_f
-      end
-      [return_h]
+      RustPacker.generate_packing_for_greedy_box(items)
     end
   end
 end
