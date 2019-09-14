@@ -1,11 +1,31 @@
 extern crate rutie;
 
-use rutie::{AnyObject, Array, Class, Fixnum, Float, Hash, NilClass, Object, Symbol, VM};
+use rutie::{AnyObject, Array, Class, Fixnum, Float, Hash, NilClass, Object, Symbol, Boolean};
 use std::cmp::Ordering;
 
 rutie::class!(RustPacker);
 
 type Dimensions = [f64; 3];
+
+struct Item {
+    dimensions: Dimensions,
+    weight: Option<f64>
+}
+
+fn to_optional_dimension(rb_dimension: &AnyObject) -> Option<f64> {
+    match rb_dimension.try_convert_to::<NilClass>() {
+        Ok(_) => None,
+        Err(_) => Some(to_dimension(&rb_dimension))
+    }
+}
+
+// follow ruby convention of `nil.to_f == 0`
+fn to_f(a: Option<f64>) -> f64 {
+    match a {
+        Some(f) => f,
+        None => 0.0
+    }
+}
 
 fn to_dimension(rb_dimension: &AnyObject) -> f64 {
     match rb_dimension.try_convert_to::<Fixnum>() {
@@ -21,6 +41,17 @@ fn to_dimensions(rb_array: &AnyObject) -> Dimensions {
         to_dimension(&array.at(1)),
         to_dimension(&array.at(2)),
     ]
+}
+
+fn extract_items(rb_array_of_hashes: Array) -> Vec<Item> {
+    let mut items : Vec<Item> = Vec::with_capacity(rb_array_of_hashes.length());
+    for hash in rb_array_of_hashes {
+        let hash = hash.try_convert_to::<Hash>().unwrap();
+        let dimensions = to_dimensions(&hash.at(&Symbol::new("dimensions")));
+        let weight = to_optional_dimension(&hash.at(&Symbol::new("weight")));
+        items.push(Item {dimensions, weight});
+    }
+    items
 }
 
 fn to_array(a: &Dimensions) -> Array {
@@ -53,7 +84,7 @@ fn cmp_dimensions(a: &Dimensions, b: &Dimensions) -> Ordering {
     Ordering::Equal
 }
 
-fn cmp_dimensions_and_position(dima: &[DimensionsAndPosition; 3], dimb: &[DimensionsAndPosition; 3]) -> Ordering {
+fn cmp_dimensions_and_position(dima: &[Placement; 3], dimb: &[Placement; 3]) -> Ordering {
     let mut a = dima[0].dimensions.clone();
     let mut b = dimb[0].dimensions.clone();
     a.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -84,9 +115,36 @@ struct RotationAndMargin<'a> {
     sorted_margins: Dimensions,
 }
 
-struct DimensionsAndPosition {
+struct Placement {
     dimensions: Dimensions,
     position: Dimensions,
+    weight: f64
+}
+
+fn internal_item_greedy_box(items: &[Item]) -> Dimensions {
+    let mut max_length : f64 = 0.0;
+    let mut max_width : f64 = 0.0;
+    let mut total_height : f64 = 0.0;
+    for item in items.iter() {
+        let mut dimensions = item.dimensions.clone();
+        dimensions.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        max_length = max_length.max(dimensions[0]);
+        max_width = max_width.max(dimensions[1]);
+        total_height += dimensions[2];
+    }
+    [max_length, max_width, 0.1 * (10.0 * total_height).round()]
+}
+
+fn to_rb_placements(placements: &[Placement]) -> Array {
+    let mut result = Array::new();
+    for placement in placements {
+        let mut hash = Hash::new();
+        hash.store(Symbol::new("dimensions"), to_array(&placement.dimensions));
+        hash.store(Symbol::new("position"), to_array(&placement.position));
+        hash.store(Symbol::new("weight"), Float::new(placement.weight));
+        result.push(hash);
+    }
+    result
 }
 
 rutie::methods!(
@@ -97,8 +155,7 @@ rutie::methods!(
         let space_hash = space.unwrap();
         let space_dimensions = to_dimensions(&space_hash.at(&Symbol::new("dimensions")));
         let mut item_dimensions = to_dimensions(&item_hash.at(&Symbol::new("dimensions")));
-        item_dimensions.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        item_dimensions.reverse();
+        item_dimensions.sort_by(|a, b| b.partial_cmp(a).unwrap());
 
         let permutations: [Dimensions; 6] = [
             [item_dimensions[1], item_dimensions[2], item_dimensions[0]],
@@ -158,9 +215,9 @@ rutie::methods!(
         let space_dimensions = to_dimensions(&space_hash.at(&Symbol::new("dimensions")));
         let space_position = to_dimensions(&space_hash.at(&Symbol::new("position")));
         let placement_dimensions = to_dimensions(&placement_hash.at(&Symbol::new("dimensions")));
-        let mut possible_spaces: [[DimensionsAndPosition; 3]; 6] = [
+        let mut possible_spaces: [[Placement; 3]; 6] = [
             [
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0],
                         space_dimensions[1],
@@ -171,8 +228,9 @@ rutie::methods!(
                         space_position[1],
                         space_position[2] + placement_dimensions[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0],
                         space_dimensions[1] - placement_dimensions[1],
@@ -183,8 +241,9 @@ rutie::methods!(
                         space_position[1] + placement_dimensions[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0] - placement_dimensions[0],
                         placement_dimensions[1],
@@ -195,11 +254,12 @@ rutie::methods!(
                         space_position[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
             ],
             // HEIGHT SPACE => LENGTH => WIDTH
             [
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0],
                         space_dimensions[1],
@@ -210,8 +270,9 @@ rutie::methods!(
                         space_position[1],
                         space_position[2] + placement_dimensions[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0] - placement_dimensions[0],
                         space_dimensions[1],
@@ -222,8 +283,9 @@ rutie::methods!(
                         space_position[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         placement_dimensions[0],
                         space_dimensions[1] - placement_dimensions[1],
@@ -234,11 +296,12 @@ rutie::methods!(
                         space_position[1] + placement_dimensions[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
             ],
             // LENGTH SPACE => HEIGHT => WIDTH
             [
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0] - placement_dimensions[0],
                         space_dimensions[1],
@@ -249,8 +312,9 @@ rutie::methods!(
                         space_position[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         placement_dimensions[0],
                         space_dimensions[1],
@@ -261,8 +325,9 @@ rutie::methods!(
                         space_position[1],
                         space_position[2] + placement_dimensions[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         placement_dimensions[0],
                         space_dimensions[1] - placement_dimensions[1],
@@ -273,11 +338,12 @@ rutie::methods!(
                         space_position[1] + placement_dimensions[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
             ],
             // LENGTH SPACE => WIDTH  => HEIGHT
             [
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0] - placement_dimensions[0],
                         space_dimensions[1],
@@ -288,8 +354,9 @@ rutie::methods!(
                         space_position[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         placement_dimensions[0],
                         space_dimensions[1] - placement_dimensions[1],
@@ -300,8 +367,9 @@ rutie::methods!(
                         space_position[1] + placement_dimensions[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         placement_dimensions[0],
                         placement_dimensions[1],
@@ -312,11 +380,12 @@ rutie::methods!(
                         space_position[1],
                         space_position[2] + placement_dimensions[2],
                     ],
+                    weight: 0.0
                 },
             ],
             // WIDTH SPACE  => LENGTH => HEIGHT
             [
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0],
                         space_dimensions[1] - placement_dimensions[1],
@@ -327,8 +396,9 @@ rutie::methods!(
                         space_position[1] + placement_dimensions[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0] - placement_dimensions[0],
                         placement_dimensions[1],
@@ -339,8 +409,9 @@ rutie::methods!(
                         space_position[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         placement_dimensions[0],
                         placement_dimensions[1],
@@ -351,11 +422,12 @@ rutie::methods!(
                         space_position[1],
                         space_position[2] + placement_dimensions[2],
                     ],
+                    weight: 0.0
                 },
             ],
             // WIDTH SPACE  => HEIGHT => LENGTH
             [
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0],
                         space_dimensions[1] - placement_dimensions[1],
@@ -366,8 +438,9 @@ rutie::methods!(
                         space_position[1] + placement_dimensions[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0],
                         placement_dimensions[1],
@@ -378,8 +451,9 @@ rutie::methods!(
                         space_position[1],
                         space_position[2] + placement_dimensions[2],
                     ],
+                    weight: 0.0
                 },
-                DimensionsAndPosition {
+                Placement {
                     dimensions: [
                         space_dimensions[0] - placement_dimensions[0],
                         placement_dimensions[1],
@@ -390,6 +464,7 @@ rutie::methods!(
                         space_position[1],
                         space_position[2],
                     ],
+                    weight: 0.0
                 },
             ],
         ];
@@ -413,6 +488,50 @@ rutie::methods!(
 
         result
     }
+
+    fn item_greedy_box(items: Array) -> Array {
+        let items = items.unwrap();
+        let items = extract_items(items);
+        to_array(&internal_item_greedy_box(&items))
+    }
+
+    fn check_container_is_bigger_than_greedy_box(container: Hash, items: Array) -> Boolean {
+        let container = container.unwrap();
+        let items = items.unwrap();
+        let mut c = to_dimensions(&container.at(&Symbol::new("dimensions")));
+        c.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        let items = extract_items(items);
+        let greedy_box = internal_item_greedy_box(&items);
+        let weight_limit = to_f(to_optional_dimension(&container.at(&Symbol::new("weight_limit"))));
+        let mut weight = 0.0;
+        for item in items {
+            weight += to_f(item.weight)
+        }
+        let result = c[0] >= greedy_box[0] && c[1] >= greedy_box[1] && c[2] >= greedy_box[2] &&
+            weight_limit >= weight;
+
+        Boolean::new(result)
+    }
+
+    fn generate_packing_for_greedy_box(items: Array) -> Array {
+        let items = extract_items(items.unwrap());
+        let mut height = 0.0;
+        let mut weight = 0.0;
+        let mut placements : Vec<Placement> = Vec::with_capacity(items.len());
+        for item in items {
+            let item_weight = to_f(item.weight);
+            placements.push( Placement { dimensions: item.dimensions, position: [0.0, 0.0, height], weight: item_weight } );
+            weight += item_weight;
+            height += item.dimensions[0].min(item.dimensions[1]).min(item.dimensions[2]);
+        }
+        let mut result = Array::new();
+        let mut return_h = Hash::new();
+        return_h.store(Symbol::new("weight"), Float::new(weight));
+        return_h.store(Symbol::new("spaces"), Array::new());
+        return_h.store(Symbol::new("placements"), to_rb_placements(&placements));
+        result.push(return_h);
+        result
+    }
 );
 
 #[allow(non_snake_case)]
@@ -421,5 +540,8 @@ pub extern "C" fn Init_rust_packer() {
     Class::new("RustPacker", None).define(|itself| {
         itself.def_self("place", place);
         itself.def_self("break_up_space", break_up_space);
+        itself.def_self("item_greedy_box", item_greedy_box);
+        itself.def_self("check_container_is_bigger_than_greedy_box", check_container_is_bigger_than_greedy_box);
+        itself.def_self("generate_packing_for_greedy_box", generate_packing_for_greedy_box);
     });
 }
