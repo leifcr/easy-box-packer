@@ -7,6 +7,26 @@ rutie::class!(RustPacker);
 
 type Dimensions = [f64; 3];
 
+struct Item {
+    dimensions: Dimensions,
+    weight: Option<f64>
+}
+
+fn to_optional_dimension(rb_dimension: &AnyObject) -> Option<f64> {
+    match rb_dimension.try_convert_to::<NilClass>() {
+        Ok(_) => None,
+        Err(_) => Some(to_dimension(&rb_dimension))
+    }
+}
+
+// follow ruby convention of `nil.to_f == 0`
+fn to_f(a: Option<f64>) -> f64 {
+    match a {
+        Some(f) => f,
+        None => 0.0
+    }
+}
+
 fn to_dimension(rb_dimension: &AnyObject) -> f64 {
     match rb_dimension.try_convert_to::<Fixnum>() {
         Ok(i) => i.to_i64() as f64,
@@ -23,14 +43,15 @@ fn to_dimensions(rb_array: &AnyObject) -> Dimensions {
     ]
 }
 
-fn extract_dimensions(rb_array_of_hashes: Array) -> Vec<Dimensions> {
-    let mut dimensions : Vec<Dimensions> = Vec::with_capacity(rb_array_of_hashes.length());
+fn extract_items(rb_array_of_hashes: Array) -> Vec<Item> {
+    let mut items : Vec<Item> = Vec::with_capacity(rb_array_of_hashes.length());
     for hash in rb_array_of_hashes {
         let hash = hash.try_convert_to::<Hash>().unwrap();
-        let d = to_dimensions(&hash.at(&Symbol::new("dimensions")));
-        dimensions.push(d);
+        let dimensions = to_dimensions(&hash.at(&Symbol::new("dimensions")));
+        let weight = to_optional_dimension(&hash.at(&Symbol::new("weight")));
+        items.push(Item {dimensions, weight});
     }
-    dimensions
+    items
 }
 
 fn to_array(a: &Dimensions) -> Array {
@@ -99,12 +120,12 @@ struct DimensionsAndPosition {
     position: Dimensions,
 }
 
-fn internal_item_greedy_box(items: &[Dimensions]) -> Dimensions {
+fn internal_item_greedy_box(items: &[Item]) -> Dimensions {
     let mut max_length : f64 = 0.0;
     let mut max_width : f64 = 0.0;
     let mut total_height : f64 = 0.0;
     for item in items.iter() {
-        let mut dimensions = item.clone();
+        let mut dimensions = item.dimensions.clone();
         dimensions.sort_by(|a, b| b.partial_cmp(a).unwrap());
         max_length = max_length.max(dimensions[0]);
         max_width = max_width.max(dimensions[1]);
@@ -440,8 +461,26 @@ rutie::methods!(
 
     fn item_greedy_box(items: Array) -> Array {
         let items = items.unwrap();
-        let dimensions = extract_dimensions(items);
-        to_array(&internal_item_greedy_box(&dimensions))
+        let items = extract_items(items);
+        to_array(&internal_item_greedy_box(&items))
+    }
+
+    fn check_container_is_bigger_than_greedy_box(container: Hash, items: Array) -> Boolean {
+        let container = container.unwrap();
+        let items = items.unwrap();
+        let mut c = to_dimensions(&container.at(&Symbol::new("dimensions")));
+        c.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        let items = extract_items(items);
+        let greedy_box = internal_item_greedy_box(&items);
+        let weight_limit = to_f(to_optional_dimension(&container.at(&Symbol::new("weight_limit"))));
+        let mut weight = 0.0;
+        for item in items {
+            weight += to_f(item.weight)
+        }
+        let result = c[0] >= greedy_box[0] && c[1] >= greedy_box[1] && c[2] >= greedy_box[2] &&
+            weight_limit >= weight;
+
+        Boolean::new(result)
     }
 );
 
@@ -452,5 +491,6 @@ pub extern "C" fn Init_rust_packer() {
         itself.def_self("place", place);
         itself.def_self("break_up_space", break_up_space);
         itself.def_self("item_greedy_box", item_greedy_box);
+        itself.def_self("check_container_is_bigger_than_greedy_box", check_container_is_bigger_than_greedy_box);
     });
 }

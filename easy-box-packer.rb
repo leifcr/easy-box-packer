@@ -175,9 +175,7 @@ module EasyBoxPacker
     end
 
     def check_container_is_bigger_than_greedy_box(container, items)
-      c = container[:dimensions].sort.reverse
-      greedy_box = item_greedy_box(items)
-      c[0] >= greedy_box[0] && c[1] >= greedy_box[1] && c[2] >= greedy_box[2] && container[:weight_limit].to_f >= items.inject(0) { |sum, i| sum += i[:weight].to_f }
+      RustPacker.check_container_is_bigger_than_greedy_box(container, items)
     end
 
     def generate_packing_for_greedy_box(items)
