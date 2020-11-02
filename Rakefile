@@ -15,7 +15,7 @@ task :build_rust do
   # raise "Too old Cargo (ver. #{cargo_v}). Update it." if (cargo_version <=> [1, 40, 0]).negative?
 
   # Build Rust
-  system "cargo build --release"
+  system "cargo build --release --verbose"
 
   # Product file name
   # Depends on OS
