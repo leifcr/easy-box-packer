@@ -1,7 +1,7 @@
 require 'rutie'
 
 module RustBoxPacker
-  Rutie.new(:rutie_box_packer).init 'Init_rust_packer', File.expand_path('./target')
+  Rutie.new(:rutie_box_packer).init 'Init_rust_packer', File.join(__dir__, './target')
 end
 
 module EasyBoxPacker
