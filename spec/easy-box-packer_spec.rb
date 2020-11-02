@@ -1,4 +1,4 @@
-require 'easy-box-packer'
+require '../easy-box-packer'
 require 'pry'
 describe '.pack' do
   it do
