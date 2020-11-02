@@ -10,6 +10,58 @@ module EasyBoxPacker
       RustPacker.pack(container, items)
     end
 
+    def find_smallest_container_with_limits(items:,limit_dimensions:)
+      possible = find_smallest_containers(items: items, max_count: 5)
+      l = limit_dimensions.sort
+      possible.each do |p|
+        return p if (p[0] <= l[0]) && (p[1] <= l[1]) && (p[2] <= l[2])
+      end
+      # In case there is not match, just use the smallest one...
+      possible[0];
+    end
+
+    def find_smallest_containers(items:,max_count:)
+      possible_containers = []
+      invalid_containers  = []
+
+      min_vol = items.map { |h| h[:dimensions].inject(&:*) }.inject(&:+)
+      # order items from biggest to smallest
+      sorted_items = items.sort_by { |h| h[:dimensions].sort }.reverse
+
+      # base_container = sorted_items.first
+      based_container = sorted_items.first
+
+      if sorted_items.size == 1
+        return based_container[:dimensions]
+      end
+
+      find_possible_container(
+        possible_containers: possible_containers,
+        invalid_containers: invalid_containers,
+        container: based_container[:dimensions],
+        items: sorted_items.map {|i| i[:dimensions]},
+        item_index: 1,
+        min_vol: min_vol)
+
+      count = 1;
+      containers = []
+      possible_containers.map { |a| a.sort }.sort_by { |a| [a.inject(&:*), a.inject(&:+)] }.each do |c|
+        packing = pack(
+          container: { dimensions: c },
+          items: items)
+        if packing[:packings].size == 1 && packing[:errors].size == 0
+          count += 1
+          containers.push(c)
+        end
+        break if count >= max_count
+      end
+      ret_c = []
+      containers.each do |c|
+        ret_c.push check_container_is_bigger_than_greedy_box({dimensions: c}, items) ? item_greedy_box(items) : c
+      end
+      ret_c
+    end
+
     def find_smallest_container(items:)
       possible_containers = []
       invalid_containers  = []

@@ -15,18 +15,18 @@ describe '.pack' do
     expect(packings[:packings].length).to eql(3)
     expect(packings[:packings][0][:weight]).to eql(47.0)
     expect(packings[:packings][0][:placements].length).to eql(1)
-    expect(packings[:packings][0][:placements][0][:dimensions]).to eql([2, 3, 5])
-    expect(packings[:packings][0][:placements][0][:position]).to eql([0, 0, 0])
+    expect(packings[:packings][0][:placements][0][:dimensions]).to eq([2, 3, 5])
+    expect(packings[:packings][0][:placements][0][:position]).to eq([20, 15, 13])
     expect(packings[:packings][1][:weight]).to eql(47.0)
     expect(packings[:packings][1][:placements].length).to eql(1)
-    expect(packings[:packings][1][:placements][0][:dimensions]).to eql([2, 3, 5])
-    expect(packings[:packings][1][:placements][0][:position]).to eql([0, 0, 0])
+    expect(packings[:packings][1][:placements][0][:dimensions]).to eq([2, 3, 5])
+    expect(packings[:packings][1][:placements][0][:position]).to eq([20, 15, 13])
     expect(packings[:packings][2][:weight]).to eql(31.0)
     expect(packings[:packings][2][:placements].length).to eql(2)
-    expect(packings[:packings][2][:placements][0][:dimensions]).to eql([1, 1, 4])
-    expect(packings[:packings][2][:placements][0][:position]).to eql([0, 0, 0])
-    expect(packings[:packings][2][:placements][1][:dimensions]).to eql([1, 3, 3])
-    expect(packings[:packings][2][:placements][1][:position]).to eql([0, 1, 0])
+    expect(packings[:packings][2][:placements][0][:dimensions]).to eq([1, 1, 4])
+    expect(packings[:packings][2][:placements][0][:position]).to eq([20, 15, 13])
+    expect(packings[:packings][2][:placements][1][:dimensions]).to eq([1, 3, 3])
+    expect(packings[:packings][2][:placements][1][:position]).to eq([1, 14, 13])
   end
 
   it 'no weight given' do
@@ -270,7 +270,7 @@ describe '.find_smallest_container' do
         {dimensions: [110, 30, 10]}, {dimensions: [110, 20, 10]}, {dimensions: [110, 10, 5]}
       ]
     )
-    expect(container).to eq([30.0, 60.0, 110.0])
+    expect(container).to eq([30, 30, 220])
   end
 
   it 'case 8' do
@@ -300,9 +300,8 @@ describe '.find_smallest_container' do
           { dimensions: [13, 23.5, 48] }
         ]
       )
-    expect(container).to eql([48, 23.5, 39.0])
+    expect(container).to eq([13, 48.0, 71.5])
   end
-
 
   it 'case 11' do
     container = EasyBoxPacker.find_smallest_container(
@@ -329,5 +328,45 @@ describe '.find_smallest_container' do
         ]
       )
     expect(container).to eql([27.0, 46.0, 57.0])
+  end
+
+  describe 'find smallest containers' do
+    it 'case find five smallest' do
+      containers = EasyBoxPacker.find_smallest_containers(
+        max_count: 5,
+        items: [
+          {dimensions: [110, 30, 10]}, {dimensions: [110, 20, 10]}, {dimensions: [110, 10, 5]},
+          {dimensions: [110, 30, 10]}, {dimensions: [110, 20, 10]}, {dimensions: [110, 10, 5]},
+          {dimensions: [110, 30, 10]}, {dimensions: [110, 20, 10]}, {dimensions: [110, 10, 5]}
+        ]
+      )
+      expect(containers).to eq([[30.0, 30.0, 220.0], [20.0, 110.0, 110.0], [30.0, 110.0, 120.0], [30.0, 110.0, 140.0]])
+    end
+  end
+
+  describe 'find smallest with limits' do
+    it 'limits to 120,120,60' do
+      containers = EasyBoxPacker.find_smallest_container_with_limits(
+        limit_dimensions: [120, 120, 60],
+        items: [
+          {dimensions: [110, 30, 10]}, {dimensions: [110, 20, 10]}, {dimensions: [110, 10, 5]},
+          {dimensions: [110, 30, 10]}, {dimensions: [110, 20, 10]}, {dimensions: [110, 10, 5]},
+          {dimensions: [110, 30, 10]}, {dimensions: [110, 20, 10]}, {dimensions: [110, 10, 5]}
+        ]
+      )
+      expect(containers).to eq([20, 110, 110])
+    end
+
+    it 'case 10' do
+      container = EasyBoxPacker.find_smallest_container_with_limits(
+        limit_dimensions: [50, 50, 50],
+        items: [
+            { dimensions: [13, 23.5, 48] },
+            { dimensions: [13, 23.5, 48] },
+            { dimensions: [13, 23.5, 48] }
+          ]
+        )
+      expect(container).to eq([26, 48, 48])
+    end
   end
 end
