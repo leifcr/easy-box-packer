@@ -1,6 +1,6 @@
 # What to do when installing gem
 # Describe as default task
-task :default do
+task :rust_build do
   # Is Rust installed?
   # Determine if the cargo command works
   begin
@@ -14,7 +14,7 @@ task :default do
   # raise "Too old Cargo (ver. #{cargo_v}). Update it." if (cargo_version <=> [1, 40, 0]).negative?
 
   # Build Rust
-  system "cargo build --release", chdir: __dir__ + "/.."
+  system "cargo build --release --verbose", chdir: __dir__ + "/.."
 
   # Product file name
   # Depends on OS
@@ -31,3 +31,5 @@ task :default do
   # FileUtils.mv __dir__ + "/../target/release/#{file_name}", __dir__ + "/../lib/"
   # FileUtils.rmtree __dir__ + "/../target/"
 end
+
+task :default => :rust_build

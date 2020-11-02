@@ -11,4 +11,4 @@ rutie = "0.7.0"
 
 [lib]
 name = "rutie_box_packer"
-crate-type = ["dylib"]
+crate-type = ["cdylib"]

@@ -41,4 +41,7 @@ RSpec::Core::RakeTask.new(:spec) do |t|
   t.pattern = Dir.glob("spec/**/*_spec.rb")
   t.rspec_opts = "--format documentation"
 end
-task default: :spec
+
+task default: [:build_rust, :spec]
+
+task clean: :clean_rust

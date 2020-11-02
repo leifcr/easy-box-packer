@@ -25,7 +25,5 @@ jobs:
         ruby-version: 2.7
     - name: Install dependencies
       run: bundle install
-    - name: Run tests
-      run: rake build_rust
     - name: test
       run: rake
