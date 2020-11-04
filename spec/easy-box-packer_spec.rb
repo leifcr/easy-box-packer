@@ -1,5 +1,4 @@
-require '../easy-box-packer'
-require 'pry'
+require_relative '../easy-box-packer'
 describe '.pack' do
   it do
     packings = EasyBoxPacker.pack(
@@ -156,6 +155,29 @@ describe '.pack' do
         ]
       )
       expect(packings[:packings].length).to eql(1)
+    end
+
+    it 'case 9, can pack with weight, even if container has 0 weight' do
+      packings = EasyBoxPacker.pack(
+        container: { dimensions: [46.5, 32, 15] },
+        items: [
+          {dimensions: [7, 8, 9], weight: 10},
+          {dimensions: [2, 2, 3], weight: 10},
+          {dimensions: [5, 31, 45], weight: 10}
+        ]
+      )
+      expect(packings[:packings].length).to eql(1)
+    end
+
+    it 'case 10, gives error that the item is too heavy' do
+      packings = EasyBoxPacker.pack(
+        container: { dimensions: [46.5, 32, 15], weight_limit: 10 },
+        items: [
+          {dimensions: [7, 8, 9], weight: 100 },
+        ]
+      )
+      expect(packings[:packings].length).to eql(0)
+      expect(packings[:errors]).to eql(["Item: {:dimensions=>[7, 8, 9], weight: 100} is too heavy for container"])
     end
   end
 end
@@ -340,7 +362,7 @@ describe '.find_smallest_container' do
           {dimensions: [110, 30, 10]}, {dimensions: [110, 20, 10]}, {dimensions: [110, 10, 5]}
         ]
       )
-      expect(containers).to eq([[30.0, 30.0, 220.0], [20.0, 110.0, 110.0], [30.0, 110.0, 120.0], [30.0, 110.0, 140.0]])
+      expect(containers).to eq([[30.0, 30.0, 220.0], [20.0, 110.0, 110.0], [30.0, 110.0, 120.0], [30.0, 110.0, 140.0], [40.0, 110.0, 110.0]])
     end
   end
 
@@ -357,16 +379,28 @@ describe '.find_smallest_container' do
       expect(containers).to eq([20, 110, 110])
     end
 
-    it 'case 10' do
+    it 'limits to 50,50,50' do
       container = EasyBoxPacker.find_smallest_container_with_limits(
         limit_dimensions: [50, 50, 50],
         items: [
-            { dimensions: [13, 23.5, 48] },
-            { dimensions: [13, 23.5, 48] },
-            { dimensions: [13, 23.5, 48] }
-          ]
-        )
+          { dimensions: [13, 23.5, 48] },
+          { dimensions: [13, 23.5, 48] },
+          { dimensions: [13, 23.5, 48] }
+        ]
+      )
       expect(container).to eq([26, 48, 48])
+    end
+
+    it 'flat items with weight and limits' do
+      container = EasyBoxPacker.find_smallest_container_with_limits(
+        limit_dimensions: [120, 120, 120],
+        items: [
+          { dimensions: [25, 25, 1], weight: 900 },
+          { dimensions: [25, 25, 1], weight: 900 },
+          { dimensions: [25, 25, 1], weight: 900 }
+        ]
+      )
+      expect(container).to eq([25, 25, 3])
     end
   end
 end

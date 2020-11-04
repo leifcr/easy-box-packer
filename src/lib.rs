@@ -599,10 +599,12 @@ fn internal_check_container_is_bigger_than_greedy_box(container: &Container, ite
     for item in items {
         weight += item.weight.to_f();
     }
+    // If container has 0 as weight limit (infinite), box is large enough
     container.dimensions.length >= greedy_box[0] &&
         container.dimensions.width >= greedy_box[1]  &&
         container.dimensions.height >= greedy_box[2] &&
-        container.weight_limit.to_f() >= weight
+        (container.weight_limit.to_f() >= weight ||
+         container.weight_limit.to_f() == 0.0)
 }
 
 fn internal_generate_packing_for_greedy_box(items: &[Item]) -> Packing {
@@ -634,7 +636,7 @@ rutie::methods!(
         // so by length first (biggest) and then sort in descending order
         items.sort_by(|a, b| b.dimensions.cmp_lwh(&a.dimensions));
         for item in &items {
-            if item.weight.to_f() > container.weight_limit.to_f() {
+            if item.weight.to_f() > container.weight_limit.to_f() && container.weight_limit.to_f() != 0.0 {
                 errors.push(format!("Item: {} is too heavy for container", item));
                 continue;
             }
@@ -742,7 +744,8 @@ rutie::methods!(
         let result = container.dimensions.length >= greedy_box[0] &&
             container.dimensions.width >= greedy_box[1]  &&
             container.dimensions.height >= greedy_box[2] &&
-            container.weight_limit.to_f() >= weight;
+            (container.weight_limit.to_f() >= weight ||
+            container.weight_limit.to_f() >= 0.0);
 
         Boolean::new(result)
     }
