@@ -11,7 +11,9 @@ Gem::Specification.new do |s|
   s.files        = Dir['LICENSE.txt', 'README.md', 'easy-box-packer.rb']
   s.require_path = '.'
   s.add_dependency 'rutie', '~> 0.0.4'
-  s.add_development_dependency 'rspec', '~> 3.1', '>= 3.1.0'
+  s.add_development_dependency 'guard'
+  s.add_development_dependency 'guard-rspec'
   s.add_development_dependency 'pry'
+  s.add_development_dependency 'rspec', '~> 3.1', '>= 3.1.0'
   s.extensions = %w[ext/Rakefile]
 end
